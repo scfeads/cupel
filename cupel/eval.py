@@ -11,7 +11,6 @@ from pathlib import Path
 from datetime import datetime
 
 from cupel import __version__
-from cupel.config import IMAGE_PROMPT_ID
 
 log = logging.getLogger("cupel")
 
@@ -309,7 +308,7 @@ def score_one(api_url, api_key, judge_model, prompt_text, rubric, response_text,
 def run_prompt(api_url, api_key, model, p, cfg, image_b64):
     pid = p["id"]
 
-    if pid == IMAGE_PROMPT_ID and not image_b64:
+    if p.get("category") == "multimodal" and not image_b64:
         return {
             "id": pid, "title": p["title"], "category": p["category"],
             "skipped": True, "reason": "image not provided",
@@ -320,7 +319,7 @@ def run_prompt(api_url, api_key, model, p, cfg, image_b64):
         return _run_multi_turn(api_url, api_key, model, p, cfg)
 
     try:
-        use_image = image_b64 if pid == IMAGE_PROMPT_ID else None
+        use_image = image_b64 if p.get("category") == "multimodal" else None
         resp = call_llm(
             api_url, api_key, model, p["prompt"],
             temperature=cfg.get("temperature", 0),

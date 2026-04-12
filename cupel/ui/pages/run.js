@@ -83,7 +83,7 @@ function RunPage({ providers: initProviders }) {
   const [selected, setSelected] = useState(() => JSON.parse(localStorage.getItem('cupel:bench-models') || '[]'));
   const [selectedCats, setSelectedCats] = useState(() => { const s = localStorage.getItem('cupel:bench-cats'); return s ? new Set(JSON.parse(s)) : new Set(['all']); });
   const [pickedPromptIds, setPickedPromptIds] = useState(() => { const s = localStorage.getItem('cupel:bench-pick'); return s ? new Set(JSON.parse(s)) : new Set(); });
-  const [pickMode, setPickMode] = useState(false);
+  const [pickMode, setPickMode] = useState(() => localStorage.getItem('cupel:bench-pick-mode') === 'true');
   const [judgeModel, setJudgeModel] = useState(() => localStorage.getItem('cupel:judge-model') || null);
   const [thinkingMode, setThinkingMode] = useState(() => localStorage.getItem('cupel:thinking-mode') || 'default');
   const [thinkingBudget, setThinkingBudget] = useState(() => parseInt(localStorage.getItem('cupel:thinking-budget')) || 4096);
@@ -650,14 +650,14 @@ function RunPage({ providers: initProviders }) {
         </div>
         ${!pickMode ? html`
           <div style="margin-top:4px">
-            <span style="font-family:var(--font-data);font-size:13px;color:var(--accent);cursor:pointer" onClick=${() => setPickMode(true)}>
+            <span style="font-family:var(--font-data);font-size:13px;color:var(--accent);cursor:pointer" onClick=${() => { setPickMode(true); localStorage.setItem('cupel:bench-pick-mode', 'true'); }}>
               + pick specific tasks${pickedPromptIds.size > 0 ? ` (${pickedPromptIds.size})` : ''}
             </span>
           </div>
         ` : html`
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
             <span style="font-family:var(--font-label);font-size:13px;font-weight:600;color:var(--text-2)">picking specific tasks</span>
-            <span style="font-family:var(--font-data);font-size:13px;color:var(--accent);cursor:pointer" onClick=${() => setPickMode(false)}>
+            <span style="font-family:var(--font-data);font-size:13px;color:var(--accent);cursor:pointer" onClick=${() => { setPickMode(false); localStorage.setItem('cupel:bench-pick-mode', 'false'); }}>
               × back to categories
             </span>
           </div>

@@ -37,8 +37,6 @@ DEFAULTS = {
     "generation_model": "",
 }
 
-IMAGE_PROMPT_ID = None
-
 # Port → env-var mapping for local inference servers.
 # Each provider gets its own key; LLM_API_KEY is the legacy fallback.
 LOCAL_PROVIDER_KEYS = {
