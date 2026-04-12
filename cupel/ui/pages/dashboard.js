@@ -321,6 +321,10 @@ function Dashboard({ providers, refreshProviders }) {
     const saved = localStorage.getItem('cupel:dash-local-only');
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [textOnly, setTextOnly] = useState(() => {
+    const saved = localStorage.getItem('cupel:dash-text-only');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [state, setState] = useState(null);
   const [sortCol, setSortCol] = useState('score');
   const [sortDir, setSortDir] = useState('desc');
@@ -438,7 +442,23 @@ function Dashboard({ providers, refreshProviders }) {
     });
   }
   const prompts = leaderboard.prompts;
-  const maxScore = prompts.length * 3;
+  const displayPrompts = textOnly ? prompts.filter(p => p.category !== 'multimodal') : prompts;
+  const maxScore = displayPrompts.length * 3;
+
+  if (textOnly) {
+    entries = entries.map(e => {
+      const textPrompts = (e.scores_by_prompt || []).filter(sp => sp.category !== 'multimodal');
+      const totalScore = textPrompts.reduce((sum, sp) => sum + (sp.score != null ? sp.score : 0), 0);
+      const maxS = textPrompts.length * 3;
+      return {
+        ...e,
+        scores_by_prompt: textPrompts,
+        total_score: totalScore,
+        max_score: maxS,
+        pct: maxS > 0 ? Math.round(totalScore / maxS * 1000) / 10 : 0,
+      };
+    });
+  }
 
   const judgeModel = (entries.length > 0 && entries[0].judge_model) ? entries[0].judge_model : 'self-judged';
   const hardwareStr = hardware ? `${hardware.name || ''} ${hardware.memory || ''}`.trim() : '';
@@ -449,8 +469,13 @@ function Dashboard({ providers, refreshProviders }) {
     entries.sort((a, b) => {
       const va = colDef.getter(a, 0);
       const vb = colDef.getter(b, 0);
-      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-      return sortDir === 'asc' ? va - vb : vb - va;
+      let cmp;
+      if (typeof va === 'string') cmp = va.localeCompare(vb);
+      else cmp = va - vb;
+      if (sortDir === 'desc') cmp = -cmp;
+      if (cmp !== 0) return cmp;
+      // tiebreak: faster model wins
+      return (b.tok_per_sec || 0) - (a.tok_per_sec || 0);
     });
   }
 
@@ -468,9 +493,9 @@ function Dashboard({ providers, refreshProviders }) {
   const hasSelfJudged = entries.some(e => e.self_judged);
 
   // Build category data
-  const cats = [...new Set(prompts.map(p => p.category).filter(Boolean))];
+  const cats = [...new Set(displayPrompts.map(p => p.category).filter(Boolean))];
   const catPrompts = {};
-  cats.forEach(c => { catPrompts[c] = prompts.filter(p => p.category === c); });
+  cats.forEach(c => { catPrompts[c] = displayPrompts.filter(p => p.category === c); });
 
   // Sort indicator
   const sortArrow = (col) => {
@@ -508,7 +533,7 @@ function Dashboard({ providers, refreshProviders }) {
       </div>
       <div class="stat-cell">
         <div class="stat-label">Prompts</div>
-        <div class="stat-val">${prompts.length}</div>
+        <div class="stat-val">${displayPrompts.length}</div>
       </div>
       <div class="stat-cell">
         <div class="stat-label">Peak Speed</div>
@@ -516,11 +541,18 @@ function Dashboard({ providers, refreshProviders }) {
       </div>
       ${chartTabs}
       <div class="stat-cell" style="margin-left:${entries.length > 0 ? '0' : 'auto'};border-right:none;display:flex;flex-direction:column;gap:4px;align-items:flex-start">
-        <label class="show-ex">
-          <input type="checkbox" checked=${localOnly}
-            onChange=${(e) => { setLocalOnly(e.target.checked); localStorage.setItem('cupel:dash-local-only', JSON.stringify(e.target.checked)); }} />
-          local only
-        </label>
+        <div style="display:flex;gap:10px">
+          <label class="show-ex">
+            <input type="checkbox" checked=${localOnly}
+              onChange=${(e) => { setLocalOnly(e.target.checked); localStorage.setItem('cupel:dash-local-only', JSON.stringify(e.target.checked)); }} />
+            local
+          </label>
+          <label class="show-ex">
+            <input type="checkbox" checked=${textOnly}
+              onChange=${(e) => { setTextOnly(e.target.checked); localStorage.setItem('cupel:dash-text-only', JSON.stringify(e.target.checked)); }} />
+            text
+          </label>
+        </div>
         <label class="show-ex">
           <input type="checkbox" checked=${showExamples}
             onChange=${(e) => { setShowExamples(e.target.checked); localStorage.setItem('cupel:dash-show-examples', JSON.stringify(e.target.checked)); }} />
@@ -564,7 +596,7 @@ function Dashboard({ providers, refreshProviders }) {
     return () => {
       if (currentChart) { currentChart.destroy(); currentChart = null; }
     };
-  }, [chartTab, chartLoaded, entries.length, showExamples, localOnly, radarModels, sortCol, sortDir]);
+  }, [chartTab, chartLoaded, entries.length, showExamples, localOnly, textOnly, radarModels, sortCol, sortDir]);
 
   const barHeight = chartTab === 'bar' ? Math.max(320, entries.length * 28 + 40) : 320;
 
