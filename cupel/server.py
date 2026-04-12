@@ -23,7 +23,7 @@ from cupel.eval import (
     run_eval, judge_results, score_one, _prompt_text_for_judge, run_prompt,
     call_llm, find_image,
 )
-from cupel.discovery import detect_hardware, discover_providers
+from cupel.discovery import detect_hardware, discover_providers, detect_thermal
 
 import yaml
 
@@ -392,6 +392,11 @@ async def fetch_provider_models(request: Request):
 async def get_hardware():
     hw = await asyncio.to_thread(detect_hardware)
     return hw
+
+@app.get("/api/thermal")
+async def get_thermal():
+    state = await asyncio.to_thread(detect_thermal)
+    return {"state": state}
 
 # ──────────────────────────────────────────────
 # Routes: config

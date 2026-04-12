@@ -23,6 +23,13 @@ const CAT_GROUPS = [
 const CAT_TO_GROUP = {};
 CAT_GROUPS.forEach(g => g.cats.forEach(c => { CAT_TO_GROUP[c] = g.key; }));
 
+const THERMAL = {
+  0: { label: 'cool', bars: 1, color: '#5b9bd5' },
+  1: { label: 'warm', bars: 2, color: 'var(--warn)' },
+  2: { label: 'hot',  bars: 3, color: 'var(--accent)' },
+  3: { label: 'critical', bars: 4, color: 'var(--bad)' },
+};
+
 function connectSSE(jobId, onEvent) {
   console.log('[cupel] SSE connecting to job', jobId);
   const es = new EventSource(`/api/jobs/${jobId}/stream`);
@@ -92,6 +99,7 @@ function RunPage({ providers: initProviders }) {
   const [complete, setComplete] = useState(null);
   const [running, setRunning] = useState(false);
   const [hardware, setHardware] = useState(null);
+  const [thermalState, setThermalState] = useState(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [starterPrompts, setStarterPrompts] = useState([]);
   const [fullPrompts, setFullPrompts] = useState([]);
@@ -122,6 +130,20 @@ function RunPage({ providers: initProviders }) {
         setJudgeModel(cfg.judge.model);
       }
     });
+  }, []);
+
+  useEffect(() => {
+    let interval = null;
+    let stopped = false;
+    const poll = () => {
+      fetch('/api/thermal').then(r => r.json()).then(d => {
+        if (d.state == null) { stopped = true; clearInterval(interval); return; }
+        setThermalState(d.state);
+      }).catch(() => {});
+    };
+    poll();
+    interval = setInterval(() => { if (!stopped) poll(); }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Reconnect to active job on mount (waits for prompt data to load)
@@ -537,7 +559,7 @@ function RunPage({ providers: initProviders }) {
         <div style="display:flex;align-items:center;gap:16px">
           ${hardware ? html`
             <span style="font-family:var(--font-data);font-size:13px;color:var(--text-3)">
-              ${hardware.name || ''}${hardware.memory ? ' \u00b7 ' + hardware.memory : ''}
+              ${hardware.name || ''}${hardware.memory ? ' · ' + hardware.memory : ''}${thermalState != null && THERMAL[thermalState] ? (() => { const t = THERMAL[thermalState]; return html`<span title="thermal: ${t.label}" style="display:inline-flex;gap:2px;align-items:center;margin-left:8px;cursor:default">${[0,1,2,3].map(i => html`<span style="width:4px;height:12px;border-radius:1px;background:${i < t.bars ? t.color : 'var(--border-subtle)'}"></span>`)}</span>`; })() : ''}
             </span>
           ` : null}
           ${!running ? html`

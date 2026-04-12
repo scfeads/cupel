@@ -88,6 +88,21 @@ def detect_hardware():
     return info
 
 
+def detect_thermal():
+    """Read macOS thermal state via ProcessInfo.thermalState. Returns int 0-3 or None."""
+    if platform.system() != "Darwin":
+        return None
+    try:
+        out = subprocess.check_output(
+            ["swift", "-e", "import Foundation; print(ProcessInfo.processInfo.thermalState.rawValue)"],
+            stderr=subprocess.DEVNULL,
+            timeout=5
+        ).decode().strip()
+        return int(out)
+    except Exception:
+        return None
+
+
 def discover_providers():
     """Probe known ports for inference servers. Returns list of provider dicts."""
     import urllib.request

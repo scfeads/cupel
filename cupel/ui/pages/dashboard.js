@@ -32,6 +32,13 @@ const TOOLTIP_STYLE = {
 
 const FONT = "'IBM Plex Mono', monospace";
 
+const THERMAL = {
+  0: { label: 'cool', bars: 1, color: '#5b9bd5' },
+  1: { label: 'warm', bars: 2, color: 'var(--warn)' },
+  2: { label: 'hot',  bars: 3, color: 'var(--accent)' },
+  3: { label: 'critical', bars: 4, color: 'var(--bad)' },
+};
+
 function catLabel(c) { return (c || '').replace(/_/g, ' '); }
 
 function deltaStr(d) { return d > 0 ? `+${d}` : d === 0 ? '\u2014' : `${d}`; }
@@ -310,6 +317,7 @@ function buildRadarConfig(entries, radarModels, cats, catPrompts) {
 function Dashboard({ providers, refreshProviders }) {
   const [leaderboard, setLeaderboard] = useState(null);
   const [hardware, setHardware] = useState(null);
+  const [thermalState, setThermalState] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [selectedModel, setSelectedModel] = useState(null);
   const [detailData, setDetailData] = useState(null);
@@ -359,6 +367,20 @@ function Dashboard({ providers, refreshProviders }) {
       setState(st);
       setHardware(hw);
     }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    let interval = null;
+    let stopped = false;
+    const poll = () => {
+      fetch('/api/thermal').then(r => r.json()).then(d => {
+        if (d.state == null) { stopped = true; clearInterval(interval); return; }
+        setThermalState(d.state);
+      }).catch(() => {});
+    };
+    poll();
+    interval = setInterval(() => { if (!stopped) poll(); }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const openModelDetail = useCallback((entry) => {
@@ -509,7 +531,9 @@ function Dashboard({ providers, refreshProviders }) {
   const titleStrip = html`
     <div class="title-strip" style="display:flex;align-items:baseline;justify-content:space-between">
       <div class="title-main" style="margin-bottom:0">cupel</div>
-      <div style="font-family:var(--font-data);font-size:13px;color:var(--text-3)">${hardwareStr}</div>
+      <div style="font-family:var(--font-data);font-size:13px;color:var(--text-3)">
+        ${hardwareStr}${thermalState != null && THERMAL[thermalState] ? (() => { const t = THERMAL[thermalState]; return html`<span title="thermal: ${t.label}" style="display:inline-flex;gap:2px;align-items:center;margin-left:8px;cursor:default">${[0,1,2,3].map(i => html`<span style="width:4px;height:12px;border-radius:1px;background:${i < t.bars ? t.color : 'var(--border-subtle)'}"></span>`)}</span>`; })() : ''}
+      </div>
     </div>`;
 
   // -- Chart tabs (only if entries exist) --
