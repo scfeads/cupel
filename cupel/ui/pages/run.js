@@ -78,6 +78,7 @@ const PROVIDER_INFO = {
   11434: { name: 'Ollama',    avatar: '\u25CE' },
   1234:  { name: 'LM Studio', avatar: '\u25A3' },
   30000: { name: 'SGLang',    avatar: '\u25C8' },
+  8080:  { name: 'llama.cpp', avatar: '\u25B3' },
 };
 
 function guessProvider(p) {

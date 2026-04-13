@@ -822,8 +822,8 @@ function Dashboard({ providers, refreshProviders }) {
   // -- Welcome banner --
   const readyProviders = (providers || []).filter(p => p.status === 'online' && (p.models || []).length > 0);
   const blockedProviders = (providers || []).filter(p => p.status === 'online' && (p.models || []).length === 0 && p.auth_error);
-  const PP_NAMES = { 8000: 'oMLX', 11434: 'Ollama', 1234: 'LM Studio', 30000: 'SGLang' };
-  const PP_KEYS = { 8000: 'OMLX_API_KEY', 11434: 'OLLAMA_API_KEY', 1234: 'LM_STUDIO_API_KEY', 30000: 'SGLANG_API_KEY' };
+  const PP_NAMES = { 8000: 'oMLX', 11434: 'Ollama', 1234: 'LM Studio', 30000: 'SGLang', 8080: 'llama.cpp' };
+  const PP_KEYS = { 8000: 'OMLX_API_KEY', 11434: 'OLLAMA_API_KEY', 1234: 'LM_STUDIO_API_KEY', 30000: 'SGLANG_API_KEY', 8080: 'LLAMA_CPP_API_KEY' };
   const provName = (p) => {
     const port = parseInt((p.url || '').split(':').pop(), 10);
     return PP_NAMES[port] || p.name || p.url;

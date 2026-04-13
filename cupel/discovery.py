@@ -1,9 +1,12 @@
 """cupel.discovery — hardware detection and inference provider discovery."""
 
 import json
+import logging
 import os
 import platform
 import subprocess
+
+log = logging.getLogger("cupel")
 
 
 def detect_hardware():
@@ -22,8 +25,8 @@ def detect_hardware():
                 stderr=subprocess.DEVNULL, timeout=5
             ).decode().strip()
             info["name"] = chip
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("sysctl brand_string failed: %s", e)
         # Try to get Apple Silicon chip name
         try:
             chip_info = subprocess.check_output(
@@ -38,8 +41,8 @@ def detect_hardware():
                     info["memory"] = line.split(":", 1)[1].strip()
                 elif "Total Number of Cores" in line and ":" in line:
                     info["spec"] = line.split(":", 1)[1].strip() + " cores"
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("system_profiler failed: %s", e)
     else:
         # Linux — try nvidia-smi
         try:
@@ -72,8 +75,8 @@ def detect_hardware():
                     info["memory"] = f"{total_mem_mib} MiB"
                 if len(gpu_names) > 1:
                     info["spec"] = f"{len(gpu_names)} GPUs"
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("nvidia-smi failed: %s", e)
         # Memory
         try:
             with open("/proc/meminfo") as f:
@@ -82,8 +85,8 @@ def detect_hardware():
                         kb = int(line.split()[1])
                         info["memory"] = f"{kb // (1024*1024)} GB"
                         break
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("/proc/meminfo read failed: %s", e)
 
     return info
 
@@ -99,7 +102,8 @@ def detect_thermal():
             timeout=5
         ).decode().strip()
         return int(out)
-    except Exception:
+    except Exception as e:
+        log.warning("thermal detection failed: %s", e)
         return None
 
 

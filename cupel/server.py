@@ -34,13 +34,22 @@ _log_dir = Path.home() / ".cupel"
 _log_dir.mkdir(parents=True, exist_ok=True)
 _log_path = _log_dir / "cupel.log"
 _fh = logging.FileHandler(_log_path)
-_fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%H:%M:%S"))
+_fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
 log.addHandler(_fh)
 
 # Route uvicorn access & error logs to the same file
 for _uv_name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
     _uv_log = logging.getLogger(_uv_name)
     _uv_log.addHandler(_fh)
+
+class _ThermalFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        if "/api/thermal" in msg and "200" in msg:
+            return False
+        return True
+
+logging.getLogger("uvicorn.access").addFilter(_ThermalFilter())
 
 BASE_DIR = Path(__file__).parent.parent   # repo root
 PKG_DIR = Path(__file__).parent           # package dir (cupel/)
@@ -395,8 +404,12 @@ async def get_hardware():
 
 @app.get("/api/thermal")
 async def get_thermal():
-    state = await asyncio.to_thread(detect_thermal)
-    return {"state": state}
+    try:
+        state = await asyncio.to_thread(detect_thermal)
+        return {"state": state}
+    except Exception as e:
+        log.error("thermal detection failed: %s", e)
+        return {"state": None}
 
 # ──────────────────────────────────────────────
 # Routes: config
@@ -473,7 +486,8 @@ async def list_results():
             summary["tags"] = tags.get(path.name, [])
             summary["muted"] = path.name in hidden
             results.append(summary)
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning("skipping corrupt result file %s: %s", path.name, e)
             continue
     return results
 
@@ -493,7 +507,8 @@ async def get_leaderboard():
         try:
             with open(path) as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning("skipping corrupt result file %s: %s", path.name, e)
             continue
 
         model = data.get("model", "unknown")
@@ -616,8 +631,8 @@ async def get_leaderboard():
                     "tok_per_sec": round(total_tokens / total_elapsed, 1) if total_elapsed > 0 else 0,
                     "avg_time": round(total_elapsed / num_prompts, 1) if num_prompts > 0 else 0,
                 })
-        except (json.JSONDecodeError, KeyError):
-            pass
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning("skipping corrupt example file: %s", e)
 
     # Sort by percentage descending
     entries = sorted(entries_list, key=lambda x: x["pct"], reverse=True)
@@ -705,7 +720,8 @@ async def compare_responses(prompt_id: int):
         try:
             with open(path) as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning("skipping corrupt result file %s: %s", path.name, e)
             continue
         for r in data.get("results", []):
             if r.get("id") == prompt_id:
@@ -747,8 +763,8 @@ async def compare_responses(prompt_id: int):
                             "is_example": True,
                         })
                         break
-        except (json.JSONDecodeError, KeyError):
-            pass
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning("skipping corrupt example file: %s", e)
 
     # Find prompt info from eval set
     eval_set = _read_eval_set()
@@ -873,6 +889,8 @@ async def _run_job(job: Job, body: dict):
                 all_results[model].append(result)
                 job.live_results.setdefault(model, {})[p["id"]] = result
                 _emit(model, p["id"], status, result.get("elapsed_seconds", 0))
+                if result.get("error"):
+                    log.warning("prompt #%d skipped  model=%s: %s", p["id"], model, result["error"])
             if job.cancelled:
                 break
 
@@ -994,6 +1012,7 @@ async def _judge_job(job: Job, body: dict):
         job.status = "complete"
 
     except Exception as e:
+        log.error("job %s judge failed: %s", job.id, e)
         job.status = "error"
         job.error = str(e)
 

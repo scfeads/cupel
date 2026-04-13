@@ -152,7 +152,11 @@ def _call_llm_raw(
 
     log.info("llm done  model=%s elapsed=%.1fs", model, elapsed)
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except json.JSONDecodeError:
+        log.error("llm response not JSON  model=%s: %s", model, resp.text[:300])
+        raise RuntimeError(f"LLM returned non-JSON response ({len(resp.text)} chars)")
     usage = data.get("usage", {})
 
     if is_anthropic:
@@ -166,9 +170,14 @@ def _call_llm_raw(
                 content_text += block.get("text", "")
         prompt_tokens = usage.get("input_tokens", 0)
         completion_tokens = usage.get("output_tokens", 0)
+        finish_reason = data.get("stop_reason", "")
     else:
         # OpenAI-compatible response
-        choice = data["choices"][0]["message"]
+        choices = data.get("choices")
+        if not choices:
+            log.error("llm response missing choices  model=%s: %s", model, json.dumps(data)[:300])
+            raise RuntimeError("LLM response has no 'choices' field")
+        choice = choices[0].get("message") or choices[0].get("delta", {})
         content_text = choice.get("content") or ""   # content can be null for tool_calls
         thinking = choice.get("thinking") or ""
         # OpenRouter returns reasoning in a separate field
@@ -176,6 +185,7 @@ def _call_llm_raw(
             thinking = choice["reasoning"]
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
+        finish_reason = choices[0].get("finish_reason", "")
 
         # Capture native tool_calls — serialize into content so judge can see them
         tool_calls = choice.get("tool_calls")
@@ -205,6 +215,10 @@ def _call_llm_raw(
                 thinking = content_text.replace("<think>", "").strip()
             content_text = ""
 
+    if finish_reason == "length":
+        log.warning("llm response truncated (hit max_tokens=%d)  model=%s elapsed=%.1fs tokens=%d",
+                    max_tokens, model, elapsed, completion_tokens)
+
     return {
         "content": content_text,
         "thinking": thinking,
@@ -212,6 +226,7 @@ def _call_llm_raw(
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": usage.get("total_tokens", prompt_tokens + completion_tokens),
+        "finish_reason": finish_reason,
     }
 
 
@@ -330,6 +345,7 @@ def run_prompt(api_url, api_key, model, p, cfg, image_b64):
 
         content = resp["content"]
         thinking = resp.get("thinking", "")
+        finish_reason = resp.get("finish_reason", "")
 
         if not content.strip() and thinking:
             return {
@@ -341,13 +357,16 @@ def run_prompt(api_url, api_key, model, p, cfg, image_b64):
                 "score": None,
             }, "error"
 
-        return {
+        result = {
             "id": pid, "title": p["title"], "category": p["category"],
             "prompt": p["prompt"], "response": content, "thinking": thinking,
             "elapsed_seconds": resp["elapsed_seconds"],
             "completion_tokens": resp["completion_tokens"],
             "score": None, "judge_reason": "", "notes": "",
-        }, f"{resp['elapsed_seconds']}s"
+        }
+        if finish_reason == "length":
+            result["notes"] = f"truncated: hit max_tokens ({resp['completion_tokens']} tokens)"
+        return result, f"{resp['elapsed_seconds']}s"
     except Exception as e:
         log.error("run_prompt failed  prompt=#%d title=%s: %s", pid, p.get("title", ""), e)
         return {
@@ -541,6 +560,7 @@ def judge_results(data_files, judge_model, judge_url, judge_key, rubric_by_id,
                     if on_progress:
                         on_progress(model, pid, "error", 0)
             except Exception as e:
+                log.warning("judge scoring failed  model=%s prompt=#%d: %s", model, pid, e)
                 result["judge_reason"] = f"judge error: {e}"
                 if on_progress:
                     on_progress(model, pid, "error", 0)
