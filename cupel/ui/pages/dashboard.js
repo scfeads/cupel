@@ -337,6 +337,7 @@ function Dashboard({ providers, refreshProviders }) {
   const [sortCol, setSortCol] = useState('score');
   const [sortDir, setSortDir] = useState('desc');
   const [refreshing, setRefreshing] = useState(false);
+  const [modelFilter, setModelFilter] = useState('');
 
   // Chart state
   const [chartTab, setChartTab] = useState(() => localStorage.getItem('cupel:dash-chart-tab') || null);
@@ -462,6 +463,10 @@ function Dashboard({ providers, refreshProviders }) {
       const hw = e.hardware || {};
       return hw.memory && hw.memory.trim() !== '';
     });
+  }
+  if (modelFilter) {
+    const q = modelFilter.toLowerCase();
+    entries = entries.filter(e => e.model.toLowerCase().includes(q));
   }
   const prompts = leaderboard.prompts;
   const displayPrompts = textOnly ? prompts.filter(p => p.category !== 'multimodal') : prompts;
@@ -701,7 +706,16 @@ function Dashboard({ providers, refreshProviders }) {
     <div class="lb"><table>
       <thead><tr>
         <th style="width:36px;${thStyle}" onClick=${() => toggleSort('rank')}>#${sortArrow('rank')}</th>
-        <th style="width:1%;white-space:nowrap;${thStyle}" onClick=${() => toggleSort('model')}>Model${sortArrow('model')}</th>
+        <th style="width:1%;white-space:nowrap;${thStyle}">
+          <span style="cursor:pointer" onClick=${() => toggleSort('model')}>Model${sortArrow('model')}</span>
+          <input type="text"
+            placeholder="search"
+            value=${modelFilter}
+            onInput=${(e) => setModelFilter(e.target.value)}
+            onClick=${(e) => e.stopPropagation()}
+            style="margin-left:${sortCol === 'model' ? '73' : '90'}px;width:102px;padding:1px 4px;font-size:11px;background:var(--bg-2);color:var(--text-1);border:1px solid var(--border);border-radius:3px;outline:none"
+          />
+        </th>
         <th>Score</th>
         <th class="r" style="width:50px;${thStyle}" onClick=${() => toggleSort('pct')}>\u0025${sortArrow('pct')}</th>
         <th class="r" style="width:80px;${thStyle}" onClick=${() => toggleSort('pts')}>Pts${sortArrow('pts')}</th>
